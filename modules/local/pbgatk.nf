@@ -1,14 +1,17 @@
 process PBGATK_GERMLINE {
+
     publishDir "${params.outdir}/cram", mode: 'copy', pattern: '*.cram'
     publishDir "${params.outdir}/vcf", mode: 'copy', pattern: '*.vcf'
-  queue { params.slurm_gpu_queue }
-  clusterOptions {
-    def req = (gpu_profile ==~ /[124]gpu/) ? (gpu_profile.replace('gpu', '') as int) : (params.slurm_gpu_request as int)
-    "--gres=ssd,gpu:${params.slurm_gpu_type}:${req} --localscratch=ssd:${params.slurm_gpu_localscratch_gb}"
-  }
+
+    queue { params.slurm_gpu_queue }
+
+    clusterOptions {
+        def req = (gpu_profile ==~ /[124]gpu/) ? (gpu_profile.replace('gpu', '') as int) : (params.slurm_gpu_request as int)
+        "--gres=ssd,gpu:${params.slurm_gpu_type}:${req} --localscratch=ssd:${params.slurm_gpu_localscratch_gb}"
+    }
 
     input:
-    tuple val(sample_id), path(read1), path(read2), val(gpu_profile)
+    tuple val(sample_id), val(read1), val(read2), val(gpu_profile)
     path ref
 
     output:
@@ -22,9 +25,9 @@ process PBGATK_GERMLINE {
     """
     pbrun germline \
       --ref ${ref} \
-      --in-fq ${read1} ${read2} \
+      --in-fq ${read1.join(' ')} ${read2.join(' ')} \
       --out-bam ${sample_id}.cram \
-      --tmp-dir \\${PWD}/tmp \
+      --tmp-dir \${PWD}/tmp \
       --out-variants ${sample_id}.vcf \
       ${runPartition} \
       --num-gpus ${gpus} \

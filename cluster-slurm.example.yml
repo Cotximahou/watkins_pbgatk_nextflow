@@ -1,0 +1,34 @@
+# Copy to cluster-slurm.yml and tune for your site.
+
+# Queues/partitions
+slurm_cpu_queue: jic-compute,nbi-compute
+slurm_gpu_queue: jic-gpu
+
+# GPU resource request for gpu_call jobs
+# Note: when samplesheet gpu_profile is one of 1gpu/2gpu/4gpu,
+# that value is used automatically per sample.
+# slurm_gpu_request is the fallback when gpu_profile is missing.
+# Invalid gpu_profile values are rejected by workflow input validation.
+slurm_gpu_type: a100
+slurm_gpu_request: 1
+
+# Local scratch requests (GB)
+slurm_gpu_localscratch_gb: 1000
+slurm_merge_localscratch_gb: 1500
+
+# Resource classes
+cpu_small_cpus: 4
+cpu_small_memory: "16 GB"
+cpu_small_time: "2h"
+
+cpu_medium_cpus: 16
+cpu_medium_memory: "64 GB"
+cpu_medium_time: "8h"
+
+cpu_merge_cpus: 32
+cpu_merge_memory: "500 GB"
+cpu_merge_time: "24h"
+
+gpu_call_cpus: 32
+gpu_call_memory: "950 GB"
+gpu_call_time: "36h"

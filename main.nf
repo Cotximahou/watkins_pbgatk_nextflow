@@ -26,22 +26,37 @@ workflow {
         .fromPath(samplesheet_path)
         .splitCsv(header: true)
         .map { row ->
-
+        
             def sampleId = row.sample_id?.toString()?.trim()
-            def read1 = row.read1?.toString()?.trim()
-            def read2 = row.read2?.toString()?.trim()
-            def gpuProfile = row.gpu_profile ? row.gpu_profile.toString().trim() : '1gpu'
-
+        
+            def read1 = row.read1
+                ?.toString()
+                ?.trim()
+                ?.split(';')
+                ?.collect { file(it.trim(), checkIfExists: true) }
+        
+            def read2 = row.read2
+                ?.toString()
+                ?.trim()
+                ?.split(';')
+                ?.collect { file(it.trim(), checkIfExists: true) }
+        
+            def gpuProfile = row.gpu_profile?.toString()?.trim() ?: '1gpu'
+        
             def validGpuProfiles = ['1gpu', '2gpu', '4gpu'] as Set
-
+        
             if( !sampleId || !read1 || !read2 )
                 error "Missing required fields in samplesheet"
-
+        
+            if( read1.size() != read2.size() )
+                error "R1/R2 mismatch for ${sampleId}"
+        
             if( !validGpuProfiles.contains(gpuProfile) )
                 error "Invalid gpu_profile '${gpuProfile}'"
-
-            tuple(sampleId, file(read1, checkIfExists: true), file(read2, checkIfExists: true), gpuProfile)
+        
+            tuple(sampleId, read1, read2, gpuProfile)
         }
+     
 
     // =========================
     // PIPELINE

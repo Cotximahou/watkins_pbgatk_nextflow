@@ -1,6 +1,6 @@
 # Copy this file to cluster-containers.yml and replace values with your site-approved definitions.
 # You can use local .sif files or registry URIs.
 
-container_parabricks: /path/to/site/containers/parabricks-4.3.3-1.sif
+container_parabricks: /path/to/site/containers/parabricks-4.3.2-1.sif
 container_bcftools: /path/to/site/containers/bcftools-1.21.sif
 container_samtools: /path/to/site/containers/samtools-1.18.sif

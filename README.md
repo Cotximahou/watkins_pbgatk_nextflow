@@ -38,6 +38,39 @@ Notes:
 - Place all `.sif` files in one local directory and pass it with `--local_container_dir`, or keep the default `./containers`.
 - Offline mode uses `pullMode = 'never'`, so missing `.sif` files will fail fast.
 
+## Mandatory Offline Requirement: Stage SIF Files First
+
+Before running this pipeline in offline mode, the following files **must** exist in your container directory:
+- `parabricks-4.3.2-1.sif`
+- `bcftools-1.21.sif`
+- `samtools-1.18.sif`
+
+Download these once from a machine that has internet access, then copy the `.sif` files to your offline cluster path.
+
+Using Singularity:
+
+```bash
+mkdir -p containers
+singularity pull containers/parabricks-4.3.2-1.sif docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1
+singularity pull containers/bcftools-1.21.sif docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0
+singularity pull containers/samtools-1.18.sif docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1
+```
+
+Using Apptainer:
+
+```bash
+mkdir -p containers
+apptainer pull containers/parabricks-4.3.2-1.sif docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1
+apptainer pull containers/bcftools-1.21.sif docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0
+apptainer pull containers/samtools-1.18.sif docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1
+```
+
+Verify files exist:
+
+```bash
+ls -lh containers/*.sif
+```
+
 ## Cluster Container Definitions
 
 Container behavior is controlled by profile:

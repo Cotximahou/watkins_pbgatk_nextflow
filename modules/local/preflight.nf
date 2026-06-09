@@ -18,7 +18,7 @@ process PRECHECK_GPU_PROFILE_COUNTS {
         idx=0
         for(i=1;i<=NF;i++) {
             col=\$i
-            gsub(/^ +| +$/, "", col)
+            gsub(/^ +| +\$/, "", col)
 
             if(tolower(col)=="gpu_profile")
                 idx=i
@@ -33,7 +33,7 @@ process PRECHECK_GPU_PROFILE_COUNTS {
 
     {
         g=\$idx
-        gsub(/^ +| +$/, "", g)
+        gsub(/^ +| +\$/, "", g)
 
         if(g=="")
             g="1gpu"

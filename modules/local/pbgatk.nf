@@ -9,7 +9,7 @@ process PBGATK_GERMLINE {
 
     input:
     tuple val(sample_id), path(read1), path(read2), val(gpu_profile)
-    path ref
+    tuple path(ref), path(ref_amb), path(ref_ann), path(ref_bwt), path(ref_pac), path(ref_sa), path(ref_fai)
 
     output:
     tuple val(sample_id), path("${sample_id}.cram"), emit: cram
@@ -44,27 +44,17 @@ process PBGATK_GERMLINE {
     SCRATCH_DIR="\$SCRATCH_DIR/pbgatk_${sample_id}"
     mkdir -p "\$SCRATCH_DIR"
 
-    REF_SRC="\$(readlink -f ${ref})"
-    REF_NAME="\$(basename ${ref})"
-    REF_LOCAL="\$SCRATCH_DIR/\$REF_NAME"
-
-    cp -f "\$REF_SRC" "\$REF_LOCAL"
-
-    REQUIRED_BWA_EXTS=(amb ann bwt pac sa)
-    for ext in "\${REQUIRED_BWA_EXTS[@]}"; do
-      if [[ ! -r "\$REF_SRC.\$ext" ]]; then
-        echo "ERROR: Missing or unreadable reference index file: \$REF_SRC.\$ext" >&2
-        exit 101
-      fi
-      cp -f "\$REF_SRC.\$ext" "\$REF_LOCAL.\$ext"
-    done
-
-    if [[ -r "\$REF_SRC.fai" ]]; then
-      cp -f "\$REF_SRC.fai" "\$REF_LOCAL.fai"
-    fi
+    # Copy staged ref + index files into scratch so Parabricks finds them together
+    cp -f ${ref}     \$SCRATCH_DIR/${ref.name}
+    cp -f ${ref_amb} \$SCRATCH_DIR/${ref.name}.amb
+    cp -f ${ref_ann} \$SCRATCH_DIR/${ref.name}.ann
+    cp -f ${ref_bwt} \$SCRATCH_DIR/${ref.name}.bwt
+    cp -f ${ref_pac} \$SCRATCH_DIR/${ref.name}.pac
+    cp -f ${ref_sa}  \$SCRATCH_DIR/${ref.name}.sa
+    cp -f ${ref_fai} \$SCRATCH_DIR/${ref.name}.fai
 
     pbrun germline \
-      --ref \$REF_LOCAL \
+      --ref \$SCRATCH_DIR/${ref.name} \
       ${inFqArgs} \
       --out-bam \$SCRATCH_DIR/${sample_id}.cram \
       --tmp-dir \$SCRATCH_DIR \

@@ -6,66 +6,56 @@ include { GET_CONTIGS } from './modules/local/contigs'
 include { EXTRACT_CONTIG_SAMPLE; MERGE_CONTIG_CHUNK; MERGE_CONTIG_FINAL } from './modules/local/merge_contigs'
 include { FLAGSTAT_CRAM } from './modules/local/flagstat'
 include { PRECHECK_GPU_PROFILE_COUNTS } from './modules/local/preflight'
+include { BUILD_BWA_INDEX } from './modules/local/bwa_index'
+
+params.samplesheet = params.samplesheet ?: null
+params.ref = params.ref ?: null
+params.outdir = params.outdir ?: 'results'
+params.contig_subset = params.contig_subset ?: ''
+params.merge_chunk_size = (params.merge_chunk_size ?: 250) as int
+params.run_flagstat = (params.run_flagstat ?: false) as boolean
+
+if( !params.samplesheet ) {
+    error "Missing required parameter: --samplesheet"
+}
+
+if( !params.ref ) {
+    error "Missing required parameter: --ref"
+}
 
 workflow {
-
-    // =========================
-    // INPUT VALIDATION (MUST be here)
-    // =========================
-    if( !params.samplesheet )
-        error "Missing required parameter: --samplesheet"
-
-    if( !params.ref )
-        error "Missing required parameter: --ref"
-
     samplesheet_path = file(params.samplesheet, checkIfExists: true)
 
     PRECHECK_GPU_PROFILE_COUNTS(samplesheet_path)
+
+    ref_file = file(params.ref, checkIfExists: true)
+    ref_indexed = BUILD_BWA_INDEX(ref_file)
 
     ch_samples = Channel
         .fromPath(samplesheet_path)
         .splitCsv(header: true)
         .map { row ->
-        
             def sampleId = row.sample_id?.toString()?.trim()
-        
-            def read1 = row.read1
-                ?.toString()
-                ?.trim()
-                ?.split(';')
-                ?.collect { file(it.trim(), checkIfExists: true) }
-        
-            def read2 = row.read2
-                ?.toString()
-                ?.trim()
-                ?.split(';')
-                ?.collect { file(it.trim(), checkIfExists: true) }
-        
-            def gpuProfile = row.gpu_profile?.toString()?.trim() ?: '1gpu'
-        
+            def read1 = row.read1?.toString()?.trim()
+            def read2 = row.read2?.toString()?.trim()
+            def gpuProfile = row.gpu_profile ? row.gpu_profile.toString().trim() : '1gpu'
             def validGpuProfiles = ['1gpu', '2gpu', '4gpu'] as Set
-        
-            if( !sampleId || !read1 || !read2 )
-                error "Missing required fields in samplesheet"
-        
-            if( read1.size() != read2.size() )
-                error "R1/R2 mismatch for ${sampleId}"
-        
-            if( !validGpuProfiles.contains(gpuProfile) )
-                error "Invalid gpu_profile '${gpuProfile}'"
-        
-            tuple(sampleId, read1, read2, gpuProfile)
+
+            if( !sampleId || !read1 || !read2 ) {
+                error "Each samplesheet row must contain sample_id, read1, and read2"
+            }
+
+            if( !validGpuProfiles.contains(gpuProfile) ) {
+                error "Invalid gpu_profile '${gpuProfile}' for sample '${sampleId}'. Allowed values: 1gpu, 2gpu, 4gpu"
+            }
+
+            tuple(sampleId, file(read1, checkIfExists: true), file(read2, checkIfExists: true), gpuProfile)
         }
-     
 
-    // =========================
-    // PIPELINE
-    // =========================
-
-    pbgatk_out = PBGATK_GERMLINE(ch_samples, file(params.ref, checkIfExists: true))
+    pbgatk_out = PBGATK_GERMLINE(ch_samples, ref_indexed.ref_with_index)
     compressed_out = COMPRESS_AND_INDEX_VCF(pbgatk_out.vcf)
 
-    contig_file = GET_CONTIGS(file(params.ref, checkIfExists: true))
+    contig_file = GET_CONTIGS(ref_indexed.ref_with_index.map { it[0] })
 
     ch_contigs = contig_file.contigs
         .splitText()
@@ -73,7 +63,12 @@ workflow {
         .filter { it }
 
     if( params.contig_subset ) {
-        def selected = params.contig_subset.toString().split(',') as Set
+        def selected = params.contig_subset
+            .toString()
+            .split(',')
+            .collect { it.trim() }
+            .findAll { it }
+            .toSet()
         ch_contigs = ch_contigs.filter { selected.contains(it) }
     }
 

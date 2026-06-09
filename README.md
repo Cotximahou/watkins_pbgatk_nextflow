@@ -28,53 +28,21 @@ Make the workflow runnable by anyone with:
 
 Use these as the default tool containers.
 
-| Tool | Purpose | Required local file |
+| Tool | Purpose | Suggested Image |
 |---|---|---|
-| Parabricks 4.3.2-1 | Germline calling | `parabricks-4.3.2-1.sif` |
-| bcftools 1.21 | VCF view/merge/index | `bcftools-1.21.sif` |
-| samtools 1.18 | flagstat/QC | `samtools-1.18.sif` |
+| Parabricks 4.3.2-1 | Germline calling | `docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1` |
+| bcftools 1.21 | VCF view/merge/index | `docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0` |
+| samtools 1.18 | flagstat/QC | `docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1` |
 
 Notes:
-- Place all `.sif` files in one local directory and pass it with `--local_container_dir`, or keep the default `./containers`.
-- Offline mode uses `pullMode = 'never'`, so missing `.sif` files will fail fast.
-
-## Mandatory Offline Requirement: Stage SIF Files First
-
-Before running this pipeline in offline mode, the following files **must** exist in your container directory:
-- `parabricks-4.3.2-1.sif`
-- `bcftools-1.21.sif`
-- `samtools-1.18.sif`
-
-Download these once from a machine that has internet access, then copy the `.sif` files to your offline cluster path.
-
-Using Singularity:
-
-```bash
-mkdir -p containers
-singularity pull containers/parabricks-4.3.2-1.sif docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1
-singularity pull containers/bcftools-1.21.sif docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0
-singularity pull containers/samtools-1.18.sif docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1
-```
-
-Using Apptainer:
-
-```bash
-mkdir -p containers
-apptainer pull containers/parabricks-4.3.2-1.sif docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1
-apptainer pull containers/bcftools-1.21.sif docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0
-apptainer pull containers/samtools-1.18.sif docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1
-```
-
-Verify files exist:
-
-```bash
-ls -lh containers/*.sif
-```
+- Parabricks images are from NVIDIA NGC and may require registry authentication depending on site policy.
+- If your site blocks direct pulls from registries, ask admins to mirror images and update paths in your Nextflow config.
 
 ## Cluster Container Definitions
 
 Container behavior is controlled by profile:
-- `singularity_offline`: use local pre-staged `.sif` files only.
+- `singularity_online`: pull/cache from registry URIs.
+- `singularity_offline`: use local pre-staged `.sif` files.
 
 Optional advanced override:
 - If your site has custom container locations, copy [nextflow/cluster-containers.example.yml](nextflow/cluster-containers.example.yml) to `cluster-containers.yml` and provide your own `container_*` paths.
@@ -88,13 +56,26 @@ Slurm tuning override:
 - `slurm_gpu_request` is only a fallback when `gpu_profile` is missing.
 - Invalid `gpu_profile` values fail early during input validation.
 
-## Offline Runtime Flags
+## Pre-pull Containers (Singularity)
 
-Set these variables when running in strict offline mode:
+Use this on your cluster:
 
 ```bash
-export NXF_SINGULARITY_CACHEDIR=/hpc-home/luk24miz/nextflow/watkins_pbgatk_nextflow/.singularity
-export NXF_OFFLINE=true
+mkdir -p containers
+singularity pull containers/parabricks-4.3.2-1.sif docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1
+singularity pull containers/bcftools-1.21.sif docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0
+singularity pull containers/samtools-1.18.sif docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1
+```
+
+If you use Apptainer:
+
+From this `nextflow` folder:
+
+```bash
+mkdir -p containers
+apptainer pull containers/parabricks-4.3.2-1.sif docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1
+apptainer pull containers/bcftools-1.21.sif docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0
+apptainer pull containers/samtools-1.18.sif docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1
 ```
 
 ## Expected Inputs
@@ -102,6 +83,11 @@ export NXF_OFFLINE=true
 Minimum required inputs for the workflow:
 - Reference FASTA: for example `../ref/19082024_paragon_v3.fa`
 - Sample sheet CSV describing samples and read files
+
+Reference indexing requirement for Parabricks:
+- The reference FASTA must have BWA index sidecar files in the same location:
+  - `.amb`, `.ann`, `.bwt`, `.pac`, `.sa`
+- Optional but recommended: `.fai`
 
 Recommended sample sheet columns:
 
@@ -131,7 +117,8 @@ SAMPLE_C,/path/to/SAMPLE_C.f1.fastq.gz,/path/to/SAMPLE_C.r2.fastq.gz,missing,4gp
 Define at least these profiles in `nextflow.config`:
 - `slurm`: Slurm executor settings
 - `singularity`: container engine settings
-- `singularity_offline`: explicit offline mode (local `.sif` files)
+- `singularity_online`: explicit online mode (registry pull/cache)
+- `singularity_offline`: explicit offline mode (local SIF files)
 - `docker`: optional local execution profile
 
 Typical settings to include:
@@ -142,24 +129,22 @@ Typical settings to include:
 
 ## Run Commands
 
-Use this profile for cluster execution:
+Use this decision table first:
 
 | Environment | Profile | Container source |
 |---|---|---|
-| Cluster/compute nodes without internet | `slurm,singularity_offline` | Local `.sif` files only |
+| Cluster/compute node has internet access | `slurm,singularity_online` | Pulled/cached from registry |
+| Cluster/compute node has no internet access | `slurm,singularity_offline` | Local `.sif` files |
 
-### 1. Offline Cluster Mode (no internet required)
+### 1. Online Cluster Mode (internet available)
 
 Copy/paste:
 
 ```bash
-NXF_SINGULARITY_CACHEDIR=/hpc-home/luk24miz/nextflow/watkins_pbgatk_nextflow/.singularity \
-NXF_OFFLINE=true \
 nextflow run main.nf \
-  -profile slurm,singularity_offline \
+  -profile slurm,singularity_online \
   --samplesheet /absolute/path/to/samplesheet.csv \
   --ref /absolute/path/to/19082024_paragon_v3.fa \
-  --local_container_dir /absolute/path/to/containers \
   --outdir /absolute/path/to/results
 ```
 
@@ -170,12 +155,36 @@ Preflight behavior:
 Resume:
 
 ```bash
-NXF_SINGULARITY_CACHEDIR=/hpc-home/luk24miz/nextflow/watkins_pbgatk_nextflow/.singularity \
-NXF_OFFLINE=true \
-nextflow run main.nf -profile slurm,singularity_offline --local_container_dir /absolute/path/to/containers -resume
+nextflow run main.nf -profile slurm,singularity_online -resume
 ```
 
-### 2. Optional: custom container mapping via params file
+### 2. Offline Cluster Mode (no internet on compute nodes)
+
+Step A: stage containers in one local folder (for example `/shared/containers/watkins`)
+
+Required filenames in that folder:
+- `parabricks-4.3.2-1.sif`
+- `bcftools-1.21.sif`
+- `samtools-1.18.sif`
+
+Step B: run pipeline with offline profile
+
+```bash
+nextflow run main.nf \
+  -profile slurm,singularity_offline \
+  --samplesheet /absolute/path/to/samplesheet.csv \
+  --ref /absolute/path/to/19082024_paragon_v3.fa \
+  --local_container_dir /shared/containers/watkins \
+  --outdir /absolute/path/to/results
+```
+
+Resume:
+
+```bash
+nextflow run main.nf -profile slurm,singularity_offline --local_container_dir /shared/containers/watkins -resume
+```
+
+### 3. Optional: custom container mapping via params file
 
 Use this only if you need non-default names/locations for containers.
 
@@ -191,13 +200,13 @@ nextflow run main.nf \
   --outdir /absolute/path/to/results
 ```
 
-### 3. Optional: Slurm tuning via params file
+### 3b. Optional: Slurm tuning via params file
 
 ```bash
 cp cluster-slurm.example.yml cluster-slurm.yml
 # edit cluster-slurm.yml for your cluster
 nextflow run main.nf \
-  -profile slurm,singularity_offline \
+  -profile slurm,singularity_online \
   -params-file cluster-slurm.yml \
   --samplesheet /absolute/path/to/samplesheet.csv \
   --ref /absolute/path/to/19082024_paragon_v3.fa \
@@ -208,7 +217,7 @@ nextflow run main.nf \
 
 ```bash
 nextflow run main.nf \
-  -profile slurm,singularity_offline \
+  -profile slurm,singularity_online \
   --samplesheet /absolute/path/to/samplesheet.csv \
   --ref /absolute/path/to/19082024_paragon_v3.fa \
   --contig_subset 1A,1B,1D \
@@ -257,12 +266,9 @@ This README documents the required runtime and containers, and the workflow code
 Quick start:
 
 ```bash
-NXF_SINGULARITY_CACHEDIR=/hpc-home/luk24miz/nextflow/watkins_pbgatk_nextflow/.singularity \
-NXF_OFFLINE=true \
 nextflow run main.nf \
-  -profile slurm,singularity_offline \
+  -profile slurm,singularity_online \
   --samplesheet /absolute/path/to/samplesheet.csv \
   --ref /absolute/path/to/19082024_paragon_v3.fa \
-  --local_container_dir /absolute/path/to/containers \
   --outdir /absolute/path/to/results
 ```

@@ -44,8 +44,27 @@ process PBGATK_GERMLINE {
     SCRATCH_DIR="\$SCRATCH_DIR/pbgatk_${sample_id}"
     mkdir -p "\$SCRATCH_DIR"
 
+    REF_SRC="$(readlink -f ${ref})"
+    REF_NAME="$(basename ${ref})"
+    REF_LOCAL="\$SCRATCH_DIR/\$REF_NAME"
+
+    cp -f "\$REF_SRC" "\$REF_LOCAL"
+
+    REQUIRED_BWA_EXTS=(amb ann bwt pac sa)
+    for ext in "\${REQUIRED_BWA_EXTS[@]}"; do
+      if [[ ! -r "\$REF_SRC.\$ext" ]]; then
+        echo "ERROR: Missing or unreadable reference index file: \$REF_SRC.\$ext" >&2
+        exit 101
+      fi
+      cp -f "\$REF_SRC.\$ext" "\$REF_LOCAL.\$ext"
+    done
+
+    if [[ -r "\$REF_SRC.fai" ]]; then
+      cp -f "\$REF_SRC.fai" "\$REF_LOCAL.fai"
+    fi
+
     pbrun germline \
-      --ref ${ref} \
+      --ref \$REF_LOCAL \
       ${inFqArgs} \
       --out-bam \$SCRATCH_DIR/${sample_id}.cram \
       --tmp-dir \$SCRATCH_DIR \

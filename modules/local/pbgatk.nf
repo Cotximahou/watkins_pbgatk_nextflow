@@ -44,8 +44,8 @@ process PBGATK_GERMLINE {
     SCRATCH_DIR="\$SCRATCH_DIR/pbgatk_${sample_id}"
     mkdir -p "\$SCRATCH_DIR"
 
-    REF_SRC="$(readlink -f ${ref})"
-    REF_NAME="$(basename ${ref})"
+    REF_SRC="\$(readlink -f ${ref})"
+    REF_NAME="\$(basename ${ref})"
     REF_LOCAL="\$SCRATCH_DIR/\$REF_NAME"
 
     cp -f "\$REF_SRC" "\$REF_LOCAL"

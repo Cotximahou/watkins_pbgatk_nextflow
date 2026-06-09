@@ -38,7 +38,7 @@ process PBGATK_GERMLINE {
       --ref ${ref} \
       ${inFqArgs} \
       --out-bam ${sample_id}.cram \
-      --tmp-dir \\${PWD}/tmp \
+      --tmp-dir \$SCRATCH_DIR \
       --out-variants ${sample_id}.vcf \
       ${runPartition} \
       --num-gpus ${gpus} \

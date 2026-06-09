@@ -34,6 +34,12 @@ process PBGATK_GERMLINE {
     def inFqArgs = sortedR1.indices.collect { i -> "--in-fq ${sortedR1[i]} ${sortedR2[i]}" }.join(' ')
 
     """
+    SCRATCH_DIR="\${SLURM_TMPDIR:-}"
+    if [[ -z "\$SCRATCH_DIR" ]]; then
+      SCRATCH_DIR="\${TMPDIR:-\$PWD/tmp}"
+    fi
+    mkdir -p "\$SCRATCH_DIR"
+
     pbrun germline \
       --ref ${ref} \
       ${inFqArgs} \

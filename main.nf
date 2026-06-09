@@ -15,15 +15,15 @@ params.contig_subset = params.contig_subset ?: ''
 params.merge_chunk_size = (params.merge_chunk_size ?: 250) as int
 params.run_flagstat = (params.run_flagstat ?: false) as boolean
 
-if( !params.samplesheet ) {
-    error "Missing required parameter: --samplesheet"
-}
-
-if( !params.ref ) {
-    error "Missing required parameter: --ref"
-}
-
 workflow {
+    if( !params.samplesheet ) {
+        error "Missing required parameter: --samplesheet"
+    }
+
+    if( !params.ref ) {
+        error "Missing required parameter: --ref"
+    }
+
     samplesheet_path = file(params.samplesheet, checkIfExists: true)
 
     PRECHECK_GPU_PROFILE_COUNTS(samplesheet_path)

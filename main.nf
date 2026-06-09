@@ -35,13 +35,13 @@ workflow {
         .fromPath(samplesheet_path)
         .splitCsv(header: true)
         .map { row ->
-            def sampleId = row.sample_id?.toString()?.trim()
-            def read1 = row.read1?.toString()?.trim()
-            def read2 = row.read2?.toString()?.trim()
+            def sampleId   = row.sample_id?.toString()?.trim()
+            def read1Raw   = row.read1?.toString()?.trim()
+            def read2Raw   = row.read2?.toString()?.trim()
             def gpuProfile = row.gpu_profile ? row.gpu_profile.toString().trim() : '1gpu'
             def validGpuProfiles = ['1gpu', '2gpu', '4gpu'] as Set
 
-            if( !sampleId || !read1 || !read2 ) {
+            if( !sampleId || !read1Raw || !read2Raw ) {
                 error "Each samplesheet row must contain sample_id, read1, and read2"
             }
 
@@ -49,7 +49,15 @@ workflow {
                 error "Invalid gpu_profile '${gpuProfile}' for sample '${sampleId}'. Allowed values: 1gpu, 2gpu, 4gpu"
             }
 
-            tuple(sampleId, file(read1, checkIfExists: true), file(read2, checkIfExists: true), gpuProfile)
+            // Support semicolon-delimited multi-lane paths in read1/read2 columns
+            def r1Files = read1Raw.split(';').collect { it.trim() }.findAll { it }.collect { file(it, checkIfExists: true) }
+            def r2Files = read2Raw.split(';').collect { it.trim() }.findAll { it }.collect { file(it, checkIfExists: true) }
+
+            if( r1Files.size() != r2Files.size() ) {
+                error "Sample '${sampleId}': read1 has ${r1Files.size()} file(s) but read2 has ${r2Files.size()} file(s)"
+            }
+
+            tuple(sampleId, r1Files, r2Files, gpuProfile)
         }
 
     pbgatk_out = PBGATK_GERMLINE(ch_samples, ref_indexed.ref_with_index)

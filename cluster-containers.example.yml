@@ -2,5 +2,6 @@
 # You can use local .sif files or registry URIs.
 
 container_parabricks: /path/to/site/containers/parabricks-4.3.2-1.sif
+container_bwa: /path/to/site/containers/bwa-0.7.17.sif
 container_bcftools: /path/to/site/containers/bcftools-1.21.sif
 container_samtools: /path/to/site/containers/samtools-1.18.sif

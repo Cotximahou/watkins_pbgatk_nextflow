@@ -31,6 +31,7 @@ Use these as the default tool containers.
 | Tool | Purpose | Suggested Image |
 |---|---|---|
 | Parabricks 4.3.2-1 | Germline calling | `docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1` |
+| BWA 0.7.17 | Reference BWA indexing | `docker://quay.io/biocontainers/bwa:0.7.17--h7132678_9` |
 | bcftools 1.21 | VCF view/merge/index | `docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0` |
 | samtools 1.18 | flagstat/QC | `docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1` |
 
@@ -63,6 +64,7 @@ Use this on your cluster:
 ```bash
 mkdir -p containers
 singularity pull containers/parabricks-4.3.2-1.sif docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1
+singularity pull containers/bwa-0.7.17.sif docker://quay.io/biocontainers/bwa:0.7.17--h7132678_9
 singularity pull containers/bcftools-1.21.sif docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0
 singularity pull containers/samtools-1.18.sif docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1
 ```
@@ -74,6 +76,7 @@ From this `nextflow` folder:
 ```bash
 mkdir -p containers
 apptainer pull containers/parabricks-4.3.2-1.sif docker://nvcr.io/nvidia/clara/clara-parabricks:4.3.2-1
+apptainer pull containers/bwa-0.7.17.sif docker://quay.io/biocontainers/bwa:0.7.17--h7132678_9
 apptainer pull containers/bcftools-1.21.sif docker://quay.io/biocontainers/bcftools:1.21--h8b25389_0
 apptainer pull containers/samtools-1.18.sif docker://quay.io/biocontainers/samtools:1.18--h50ea8bc_1
 ```
@@ -164,6 +167,7 @@ Step A: stage containers in one local folder (for example `/shared/containers/wa
 
 Required filenames in that folder:
 - `parabricks-4.3.2-1.sif`
+- `bwa-0.7.17.sif`
 - `bcftools-1.21.sif`
 - `samtools-1.18.sif`
 

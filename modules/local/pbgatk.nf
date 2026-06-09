@@ -34,18 +34,22 @@ process PBGATK_GERMLINE {
     def inFqArgs = sortedR1.indices.collect { i -> "--in-fq ${sortedR1[i]} ${sortedR2[i]}" }.join(' ')
 
     """
-    SCRATCH_DIR="\${SLURM_TMPDIR:-}"
+    SCRATCH_DIR="\${SLURM_LOCAL_SCRATCH:-}"
+    if [[ -z "\$SCRATCH_DIR" ]]; then
+      SCRATCH_DIR="\${SLURM_TMPDIR:-}"
+    fi
     if [[ -z "\$SCRATCH_DIR" ]]; then
       SCRATCH_DIR="\${TMPDIR:-\$PWD/tmp}"
     fi
+    SCRATCH_DIR="\$SCRATCH_DIR/pbgatk_${sample_id}"
     mkdir -p "\$SCRATCH_DIR"
 
     pbrun germline \
       --ref ${ref} \
       ${inFqArgs} \
-      --out-bam ${sample_id}.cram \
+      --out-bam \$SCRATCH_DIR/${sample_id}.cram \
       --tmp-dir \$SCRATCH_DIR \
-      --out-variants ${sample_id}.vcf \
+      --out-variants \$SCRATCH_DIR/${sample_id}.vcf \
       ${runPartition} \
       --num-gpus ${gpus} \
       --num-htvc-threads ${params.call_htvc_threads} \
@@ -54,5 +58,8 @@ process PBGATK_GERMLINE {
       --read-group-id-prefix ${sample_id} \
       --keep-tmp \
       --x3
+
+    cp \$SCRATCH_DIR/${sample_id}.cram .
+    cp \$SCRATCH_DIR/${sample_id}.vcf .
     """
 }

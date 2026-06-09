@@ -1,6 +1,7 @@
 process PBGATK_GERMLINE {
 
     tag "$sample_id"
+    scratch true
 
     publishDir "${params.outdir}/cram", mode: 'copy', pattern: '*.cram'
     publishDir "${params.outdir}/vcf", mode: 'copy', pattern: '*.vcf'
@@ -31,14 +32,14 @@ process PBGATK_GERMLINE {
     def runPartition = gpus > 1 ? '--run-partition' : ''
 
     """
-    SCRATCH_DIR=\${TMPDIR:-\$PWD/tmp}
+    SCRATCH_DIR=\${SLURM_TMPDIR:-\${TMPDIR:-\$PWD/tmp}}
     mkdir -p \$SCRATCH_DIR
 
     pbrun germline \
         --ref ${ref} \
         --in-fq ${read1.join(' ')} ${read2.join(' ')} \
-        --out-bam \$PWD/${sample_id}.cram \
-        --out-variants \$PWD/${sample_id}.vcf \
+        --out-bam ${sample_id}.cram \
+        --out-variants ${sample_id}.vcf \
         --tmp-dir \$SCRATCH_DIR \
         ${runPartition} \
         --num-gpus ${gpus} \

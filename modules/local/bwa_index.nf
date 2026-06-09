@@ -21,13 +21,8 @@ process BUILD_BWA_INDEX {
 
     script:
     """
-    # Copy ref into work dir for indexing
-    cp -f ${ref} ${ref.name}
-
-    # Build BWA index
-    bwa index ${ref.name}
-
-    # Build FASTA index
-    samtools faidx ${ref.name}
+    # ref is already staged by Nextflow; index it directly
+    bwa index ${ref}
+    samtools faidx ${ref}
     """
 }

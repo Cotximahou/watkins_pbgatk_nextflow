@@ -16,13 +16,9 @@ params.merge_chunk_size = (params.merge_chunk_size ?: 250) as int
 params.run_flagstat = (params.run_flagstat ?: false) as boolean
 
 workflow {
-    if( !params.samplesheet ) {
-        error "Missing required parameter: --samplesheet"
-    }
 
-    if( !params.ref ) {
-        error "Missing required parameter: --ref"
-    }
+    if (!params.samplesheet) error "Missing --samplesheet"
+    if (!params.ref) error "Missing --ref"
 
     samplesheet_path = file(params.samplesheet, checkIfExists: true)
 
@@ -35,32 +31,27 @@ workflow {
         .fromPath(samplesheet_path)
         .splitCsv(header: true)
         .map { row ->
-            def sampleId   = row.sample_id?.toString()?.trim()
-            def read1Raw   = row.read1?.toString()?.trim()
-            def read2Raw   = row.read2?.toString()?.trim()
-            def gpuProfile = row.gpu_profile ? row.gpu_profile.toString().trim() : '1gpu'
-            def validGpuProfiles = ['1gpu', '2gpu', '4gpu'] as Set
 
-            if( !sampleId || !read1Raw || !read2Raw ) {
-                error "Each samplesheet row must contain sample_id, read1, and read2"
-            }
+            def sampleId = row.sample_id?.trim()
+            def read1Raw = row.read1?.trim()
+            def read2Raw = row.read2?.trim()
+            def gpuProfile = row.gpu_profile?.trim() ?: '1gpu'
 
-            if( !validGpuProfiles.contains(gpuProfile) ) {
-                error "Invalid gpu_profile '${gpuProfile}' for sample '${sampleId}'. Allowed values: 1gpu, 2gpu, 4gpu"
-            }
+            if (!sampleId || !read1Raw || !read2Raw)
+                error "Missing required fields in samplesheet"
 
-            // Support semicolon-delimited multi-lane paths in read1/read2 columns
-            def r1Files = read1Raw.split(';').collect { it.trim() }.findAll { it }.collect { file(it, checkIfExists: true) }
-            def r2Files = read2Raw.split(';').collect { it.trim() }.findAll { it }.collect { file(it, checkIfExists: true) }
+            def r1 = read1Raw.split(';').collect { file(it.trim(), checkIfExists: true) }
+            def r2 = read2Raw.split(';').collect { file(it.trim(), checkIfExists: true) }
 
-            if( r1Files.size() != r2Files.size() ) {
-                error "Sample '${sampleId}': read1 has ${r1Files.size()} file(s) but read2 has ${r2Files.size()} file(s)"
-            }
+            if (r1.size() != r2.size())
+                error "Lane mismatch for ${sampleId}"
 
-            tuple(sampleId, r1Files, r2Files, gpuProfile)
+            tuple(sampleId, r1, r2, gpuProfile)
         }
 
+    // IMPORTANT FIX: ref channel
     pbgatk_out = PBGATK_GERMLINE(ch_samples, ref_indexed.ref_with_index)
+
     compressed_out = COMPRESS_AND_INDEX_VCF(pbgatk_out.vcf)
 
     contig_file = GET_CONTIGS(ref_indexed.ref_with_index.map { it[0] })
@@ -70,43 +61,39 @@ workflow {
         .map { it.trim() }
         .filter { it }
 
-    if( params.contig_subset ) {
-        def selected = params.contig_subset
-            .toString()
-            .split(',')
-            .collect { it.trim() }
-            .findAll { it }
-            .toSet()
-        ch_contigs = ch_contigs.filter { selected.contains(it) }
+    if (params.contig_subset) {
+        def allowed = params.contig_subset.split(',')*.trim() as Set
+        ch_contigs = ch_contigs.filter { allowed.contains(it) }
     }
 
-    ch_contig_sample_vcfgz = ch_contigs
+    ch_contig_sample = ch_contigs
         .combine(compressed_out.vcfgz)
-        .map { contig, sampleTuple -> tuple(contig, sampleTuple[0], sampleTuple[1], sampleTuple[2]) }
-
-    extracted_out = EXTRACT_CONTIG_SAMPLE(ch_contig_sample_vcfgz)
-
-    ch_chunk_inputs = extracted_out.contig_vcfgz
-        .groupTuple(by: 0)
-        .flatMap { contig, vcfgzList, csiList ->
-            def sorted = vcfgzList.sort { a, b -> a.name <=> b.name }
-            sorted.collate(params.merge_chunk_size).withIndex().collect { chunk, idx ->
-                tuple(contig, idx + 1, chunk)
-            }
+        .map { contig, sampleTuple ->
+            tuple(contig, sampleTuple[0], sampleTuple[1], sampleTuple[2])
         }
 
-    chunk_out = MERGE_CONTIG_CHUNK(ch_chunk_inputs)
+    extracted = EXTRACT_CONTIG_SAMPLE(ch_contig_sample)
 
-    ch_final_merge_inputs = chunk_out.chunk_vcfgz
+    ch_chunks = extracted.contig_vcfgz
         .groupTuple(by: 0)
-        .map { contig, chunkVcfs, chunkCsis ->
-            def sorted = chunkVcfs.sort { a, b -> a.name <=> b.name }
-            tuple(contig, sorted)
+        .flatMap { contig, vcfList, csiList ->
+            vcfList.collate(params.merge_chunk_size)
+                .withIndex()
+                .collect { chunk, idx ->
+                    tuple(contig, idx + 1, chunk)
+                }
         }
 
-    final_out = MERGE_CONTIG_FINAL(ch_final_merge_inputs)
+    chunk_out = MERGE_CONTIG_CHUNK(ch_chunks)
 
-    if( params.run_flagstat ) {
+    final_in = chunk_out.chunk_vcfgz
+        .groupTuple(by: 0)
+        .map { contig, vcfs, csis ->
+            tuple(contig, vcfs.sort { it.name })
+        }
+
+    final_out = MERGE_CONTIG_FINAL(final_in)
+
+    if (params.run_flagstat)
         FLAGSTAT_CRAM(pbgatk_out.cram)
-    }
 }

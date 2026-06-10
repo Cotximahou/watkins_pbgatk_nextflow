@@ -5,7 +5,7 @@ process PBGATK_GERMLINE {
 
     queue { params.slurm_gpu_queue }
 
-    clusterOptions { task ->
+    clusterOptions {
         def gp = task.attempt ? null : null   // dummy, ignored
     
         // GPU profile is NOT available here reliably in clusterOptions

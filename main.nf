@@ -27,6 +27,12 @@ workflow {
     ref_file = file(params.ref, checkIfExists: true)
     ref_indexed = BUILD_BWA_INDEX(ref_file)
 
+    // ✅ FIX 1: extract real FASTA channel
+    ref_fa = ref_indexed.ref_with_index.map { it[0] }
+
+    // ---------------------------
+    // SAMPLESHEET CHANNEL
+    // ---------------------------
     ch_samples = Channel
         .fromPath(samplesheet_path)
         .splitCsv(header: true)
@@ -49,12 +55,17 @@ workflow {
             tuple(sampleId, r1, r2, gpuProfile)
         }
 
-    // IMPORTANT FIX: ref channel
-    pbgatk_out = PBGATK_GERMLINE(ch_samples, ref_indexed.ref_with_index)
+    // ---------------------------
+    // GPU STEP
+    // ---------------------------
+    pbgatk_out = PBGATK_GERMLINE(ch_samples, ref_fa)
 
     compressed_out = COMPRESS_AND_INDEX_VCF(pbgatk_out.vcf)
 
-    contig_file = GET_CONTIGS(ref_indexed.ref_with_index.map { it[0] })
+    // ---------------------------
+    // CONTIG EXTRACTION
+    // ---------------------------
+    contig_file = GET_CONTIGS(ref_fa)
 
     ch_contigs = contig_file.contigs
         .splitText()
@@ -62,21 +73,29 @@ workflow {
         .filter { it }
 
     if (params.contig_subset) {
-        def allowed = params.contig_subset.split(',')*.trim() as Set
+        def allowed = params.contig_subset.split(/\s*,\s*/).toSet()
         ch_contigs = ch_contigs.filter { allowed.contains(it) }
     }
 
-    ch_contig_sample = ch_contigs
-        .combine(compressed_out.vcfgz)
-        .map { contig, sampleTuple ->
-            tuple(contig, sampleTuple[0], sampleTuple[1], sampleTuple[2])
+    // ---------------------------
+    // SAFE CONTIG-SAMPLE CROSS
+    // ---------------------------
+    ch_contig_sample =
+        ch_contigs.flatMap { contig ->
+            compressed_out.vcfgz.map { sample ->
+                tuple(contig, sample[0], sample[1], sample[2])
+            }
         }
 
     extracted = EXTRACT_CONTIG_SAMPLE(ch_contig_sample)
 
+    // ---------------------------
+    // CHUNK MERGING
+    // ---------------------------
     ch_chunks = extracted.contig_vcfgz
-        .groupTuple(by: 0)
+        .groupTuple()
         .flatMap { contig, vcfList, csiList ->
+
             vcfList.collate(params.merge_chunk_size)
                 .withIndex()
                 .collect { chunk, idx ->
@@ -87,7 +106,7 @@ workflow {
     chunk_out = MERGE_CONTIG_CHUNK(ch_chunks)
 
     final_in = chunk_out.chunk_vcfgz
-        .groupTuple(by: 0)
+        .groupTuple()
         .map { contig, vcfs, csis ->
             tuple(contig, vcfs.sort { it.name })
         }

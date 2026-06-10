@@ -1,16 +1,16 @@
 process PBGATK_GERMLINE {
 
     publishDir "${params.outdir}/cram", mode: 'copy', pattern: '*.cram'
-    publishDir "${params.outdir}/vcf", mode: 'copy', pattern: '*.vcf'
+    publishDir "${params.outdir}/vcf",  mode: 'copy', pattern: '*.vcf'
 
     queue { params.slurm_gpu_queue }
 
-    clusterOptions {
-        def req = (gpu_profile ==~ /[124]gpu/)
-                ? (gpu_profile.replace('gpu', '') as int)
+    clusterOptions { task ->
+        def req = (task.ext.gpu_profile ==~ /[124]gpu/)
+                ? (task.ext.gpu_profile.replace('gpu', '') as int)
                 : (params.slurm_gpu_request as int)
 
-        return "--gres=ssd,gpu:${params.slurm_gpu_type}:${req} --localscratch=ssd:${params.slurm_gpu_localscratch_gb}"
+        return "--gres=gpu:${params.slurm_gpu_type}:${req} --tmp=${params.slurm_gpu_localscratch_gb}G"
     }
 
     input:
@@ -19,7 +19,7 @@ process PBGATK_GERMLINE {
 
     output:
     tuple val(sample_id), path("${sample_id}.cram"), emit: cram
-    tuple val(sample_id), path("${sample_id}.vcf"), emit: vcf
+    tuple val(sample_id), path("${sample_id}.vcf"),  emit: vcf
 
     script:
     def gpus = (gpu_profile ==~ /[124]gpu/)
@@ -38,7 +38,7 @@ process PBGATK_GERMLINE {
     def sortedR1 = r1List.sort { it.name }
     def sortedR2 = r2List.sort { it.name }
 
-    def inFqArgs = sortedR1.indices.collect { i ->
+    def inFqArgs = (0..<sortedR1.size()).collect { i ->
         "--in-fq ${sortedR1[i]} ${sortedR2[i]}"
     }.join(' ')
 
@@ -68,6 +68,8 @@ process PBGATK_GERMLINE {
     cp -f ${ref_pac} "\$SCRATCH_DIR/${ref.name}.pac"
     cp -f ${ref_sa}  "\$SCRATCH_DIR/${ref.name}.sa"
     cp -f ${ref_fai} "\$SCRATCH_DIR/${ref.name}.fai"
+
+    echo "Running Parabricks germline..."
 
     pbrun germline \
       --ref "\$SCRATCH_DIR/${ref.name}" \

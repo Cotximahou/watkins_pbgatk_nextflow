@@ -10,7 +10,7 @@ process PBGATK_GERMLINE {
     
         // GPU profile is NOT available here reliably in clusterOptions
         // so we use default request
-        return "--gres=gpu:${params.slurm_gpu_type}:${params.slurm_gpu_request} --tmp=${params.slurm_gpu_localscratch_gb}G"
+        return "--gres=ssd,gpu:${params.slurm_gpu_type}:${params.slurm_gpu_request} --localscratch=ssd:${params.slurm_gpu_localscratch_gb}"
     }
 
     input:

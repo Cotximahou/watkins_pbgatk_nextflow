@@ -6,7 +6,10 @@ process PBGATK_GERMLINE {
     queue { params.slurm_gpu_queue }
 
     clusterOptions {
-        def req = (gpu_profile ==~ /[124]gpu/) ? (gpu_profile.replace('gpu', '') as int) : (params.slurm_gpu_request as int)
+        def req = (gpu_profile ==~ /[124]gpu/)
+                ? (gpu_profile.replace('gpu', '') as int)
+                : (params.slurm_gpu_request as int)
+
         return "--gres=ssd,gpu:${params.slurm_gpu_type}:${req} --localscratch=ssd:${params.slurm_gpu_localscratch_gb}"
     }
 
@@ -19,14 +22,17 @@ process PBGATK_GERMLINE {
     tuple val(sample_id), path("${sample_id}.vcf"), emit: vcf
 
     script:
-    def gpus = (gpu_profile ==~ /[124]gpu/) ? gpu_profile.replace('gpu', '') as int : (params.call_default_gpus as int)
+    def gpus = (gpu_profile ==~ /[124]gpu/)
+            ? gpu_profile.replace('gpu', '') as int
+            : (params.call_default_gpus as int)
+
     def runPartition = gpus > 1 ? '--run-partition' : ''
 
     def r1List = (read1 instanceof List) ? read1 : [read1]
     def r2List = (read2 instanceof List) ? read2 : [read2]
 
     if (r1List.size() != r2List.size()) {
-        error "Sample ${sample_id}: read1 != read2"
+        error "Sample ${sample_id}: read1/read2 mismatch"
     }
 
     def sortedR1 = r1List.sort { it.name }
@@ -40,16 +46,17 @@ process PBGATK_GERMLINE {
     set -euo pipefail
 
     echo "========== ENV =========="
-    echo "HOSTNAME=$(hostname)"
-    echo "SLURM_JOB_ID=${SLURM_JOB_ID:-UNSET}"
-    echo "SLURM_LOCAL_SCRATCH=${SLURM_LOCAL_SCRATCH:-UNSET}"
-    echo "SLURM_TMPDIR=${SLURM_TMPDIR:-UNSET}"
-    echo "TMPDIR=${TMPDIR:-UNSET}"
+    echo "HOSTNAME=\$(hostname)"
+    echo "SLURM_JOB_ID=\${SLURM_JOB_ID:-UNSET}"
+    echo "SLURM_LOCAL_SCRATCH=\${SLURM_LOCAL_SCRATCH:-UNSET}"
+    echo "SLURM_TMPDIR=\${SLURM_TMPDIR:-UNSET}"
+    echo "TMPDIR=\${TMPDIR:-UNSET}"
     nvidia-smi || true
     echo "========================="
 
     SCRATCH_BASE="\${SLURM_LOCAL_SCRATCH:-\${SLURM_TMPDIR:-\${TMPDIR:-/tmp}}}"
     SCRATCH_DIR="\${SCRATCH_BASE}/pbgatk_${sample_id}"
+
     mkdir -p "\$SCRATCH_DIR"
 
     echo "Using scratch: \$SCRATCH_DIR"
@@ -76,6 +83,8 @@ process PBGATK_GERMLINE {
       --read-group-id-prefix ${sample_id} \
       --keep-tmp \
       --x3
+
+    ls -lh "\$SCRATCH_DIR"
 
     cp "\$SCRATCH_DIR/${sample_id}.cram" .
     cp "\$SCRATCH_DIR/${sample_id}.vcf" .

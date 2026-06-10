@@ -28,7 +28,7 @@ workflow {
     ref_indexed = BUILD_BWA_INDEX(ref_file)
 
     // ✅ FIX 1: extract real FASTA channel
-    ref_fa = ref_indexed.ref_with_index.map { it[0] }
+    ref_fa = ref_indexed.ref_with_index
 
     // ---------------------------
     // SAMPLESHEET CHANNEL

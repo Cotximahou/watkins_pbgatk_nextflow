@@ -43,11 +43,11 @@ process PBGATK_GERMLINE {
     set -euo pipefail
 
     echo "========== ENV =========="
-    echo "HOSTNAME=$(hostname)"
-    echo "SLURM_JOB_ID=${SLURM_JOB_ID:-NA}"
-    echo "SLURM_LOCAL_SCRATCH=${SLURM_LOCAL_SCRATCH:-}"
-    echo "SLURM_TMPDIR=${SLURM_TMPDIR:-}"
-    echo "TMPDIR=${TMPDIR:-}"
+    echo "HOSTNAME=\$(hostname)"
+    echo "SLURM_JOB_ID=\${SLURM_JOB_ID:-NA}"
+    echo "SLURM_LOCAL_SCRATCH=\${SLURM_LOCAL_SCRATCH:-}"
+    echo "SLURM_TMPDIR=\${SLURM_TMPDIR:-}"
+    echo "TMPDIR=\${TMPDIR:-}"
     nvidia-smi || true
     echo "========================="
 

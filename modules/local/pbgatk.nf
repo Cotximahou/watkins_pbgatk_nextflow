@@ -6,11 +6,11 @@ process PBGATK_GERMLINE {
     queue { params.slurm_gpu_queue }
 
     clusterOptions { task ->
-        def req = (task.ext.gpu_profile ==~ /[124]gpu/)
-                ? (task.ext.gpu_profile.replace('gpu', '') as int)
-                : (params.slurm_gpu_request as int)
-
-        return "--gres=gpu:${params.slurm_gpu_type}:${req} --tmp=${params.slurm_gpu_localscratch_gb}G"
+        def gp = task.attempt ? null : null   // dummy, ignored
+    
+        // GPU profile is NOT available here reliably in clusterOptions
+        // so we use default request
+        return "--gres=gpu:${params.slurm_gpu_type}:${params.slurm_gpu_request} --tmp=${params.slurm_gpu_localscratch_gb}G"
     }
 
     input:

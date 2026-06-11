@@ -80,12 +80,13 @@ workflow {
     // ---------------------------
     // SAFE CONTIG-SAMPLE CROSS
     // ---------------------------
+    
     ch_contig_sample =
-        ch_contigs.flatMap { contig ->
-            compressed_out.vcfgz.map { sample ->
-                tuple(contig, sample[0], sample[1], sample[2])
+        ch_contigs
+            .combine(compressed_out.vcfgz)
+            .map { contig, sample_id, vcfgz, csi ->
+                tuple(contig, sample_id, vcfgz, csi)
             }
-        }
 
     extracted = EXTRACT_CONTIG_SAMPLE(ch_contig_sample)
 

@@ -7,6 +7,6 @@ process GET_CONTIGS {
 
     script:
     """
-    grep '^>' ${ref} | sed 's/^>//' > contigs.txt
+    awk '{print \$1}' *.fai > contigs.txt
     """
 }

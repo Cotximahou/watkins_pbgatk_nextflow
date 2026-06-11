@@ -100,7 +100,7 @@ workflow {
             vcfList.collate(params.merge_chunk_size)
                 .withIndex()
                 .collect { chunk, idx ->
-                    tuple(contig, idx + 1, chunk)
+                    tuple(contig, idx + 1, chunk.size(), chunk)
                 }
         }
 

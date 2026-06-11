@@ -20,12 +20,13 @@ process MERGE_CONTIG_CHUNK {
     tuple val(contig), path("${contig}.chunk${chunk_id}.vcf.gz"), path("${contig}.chunk${chunk_id}.vcf.gz.csi"), emit: chunk_vcfgz
 
     script:
-    def n = vcfs.size()
-    def vcfArgs = vcfs.collect { it.toString() }.join(' ')
+    def vcfList = vcfs instanceof List ? vcfs : [vcfs]
+    def n = vcfList.size()
+    def vcfArgs = vcfList.collect { it.toString() }.join(' ')
 
     """
     if [[ ${n} -eq 1 ]]; then
-      cp ${vcfs[0]} ${contig}.chunk${chunk_id}.vcf.gz
+      cp ${vcfList[0]} ${contig}.chunk${chunk_id}.vcf.gz
     else
       bcftools merge --threads ${task.cpus} -Oz -o ${contig}.chunk${chunk_id}.vcf.gz ${vcfArgs}
     fi
@@ -45,12 +46,13 @@ process MERGE_CONTIG_FINAL {
     tuple val(contig), path("watkins_${contig}.vcf.gz"), path("watkins_${contig}.vcf.gz.csi"), emit: contig_vcf
 
     script:
-    def n = chunk_vcfs.size()
-    def vcfArgs = chunk_vcfs.collect { it.toString() }.join(' ')
+    def chunkList = chunk_vcfs instanceof List ? chunk_vcfs : [chunk_vcfs]
+    def n = chunkList.size()
+    def vcfArgs = chunkList.collect { it.toString() }.join(' ')
 
     """
     if [[ ${n} -eq 1 ]]; then
-      cp ${chunk_vcfs[0]} watkins_${contig}.vcf.gz
+      cp ${chunkList[0]} watkins_${contig}.vcf.gz
     else
       bcftools merge --threads ${task.cpus} -Oz -o watkins_${contig}.vcf.gz ${vcfArgs}
     fi

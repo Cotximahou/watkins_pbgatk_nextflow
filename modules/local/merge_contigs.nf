@@ -14,18 +14,17 @@ process EXTRACT_CONTIG_SAMPLE {
 
 process MERGE_CONTIG_CHUNK {
     input:
-    tuple val(contig), val(chunk_id), path(vcfs)
+    tuple val(contig), val(chunk_id), val(n_vcfs), path(vcfs)
 
     output:
     tuple val(contig), path("${contig}.chunk${chunk_id}.vcf.gz"), path("${contig}.chunk${chunk_id}.vcf.gz.csi"), emit: chunk_vcfgz
 
     script:
     def vcfList = vcfs instanceof List ? vcfs : [vcfs]
-    def n = vcfList.size()
     def vcfArgs = vcfList.collect { it.toString() }.join(' ')
 
     """
-    if [[ ${n} -eq 1 ]]; then
+    if [[ ${n_vcfs} -eq 1 ]]; then
       cp ${vcfList[0]} ${contig}.chunk${chunk_id}.vcf.gz
     else
       bcftools merge --threads ${task.cpus} -Oz -o ${contig}.chunk${chunk_id}.vcf.gz ${vcfArgs}

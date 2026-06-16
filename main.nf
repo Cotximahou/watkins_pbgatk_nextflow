@@ -62,6 +62,9 @@ workflow {
 
     compressed_out = COMPRESS_AND_INDEX_VCF(pbgatk_out.vcf)
 
+    compressed_out.vcfgz.view { x -> "VCFGZ=${x}" }
+    ch_samples.view { x -> "SAMPLE=${x[0]}" }
+
     // ---------------------------
     // CONTIG EXTRACTION
     // ---------------------------
@@ -88,9 +91,7 @@ workflow {
                 tuple(contig, sample_id, vcfgz, csi)
             }
 
-    ch_contig_sample.view { x -> "INPUT_TO_EXTRACT: ${x}" }
     extracted = EXTRACT_CONTIG_SAMPLE(ch_contig_sample)
-    extracted.contig_vcfgz.view { x -> "OUTPUT_FROM_EXTRACT: ${x}" }
     // ---------------------------
     // CHUNK MERGING
     // ---------------------------

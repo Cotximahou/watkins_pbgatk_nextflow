@@ -94,9 +94,12 @@ workflow {
     // CHUNK MERGING
     // ---------------------------
     ch_chunks = extracted.contig_vcfgz
+        .map { contig, vcf, csi ->
+            tuple(contig, vcf)
+        }
         .groupTuple()
-        .flatMap { contig, vcfList, csiList ->
-
+        .flatMap { contig, vcfList ->
+    
             vcfList.collate(params.merge_chunk_size)
                 .withIndex()
                 .collect { chunk, idx ->

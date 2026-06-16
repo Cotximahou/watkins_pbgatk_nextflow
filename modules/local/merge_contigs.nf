@@ -14,7 +14,7 @@ process EXTRACT_CONTIG_SAMPLE {
 
 process MERGE_CONTIG_CHUNK {
     input:
-    tuple val(contig), val(chunk_id), val(n_vcfs), path(vcfs)
+    tuple val(contig), val(chunk_id), val(n_vcfs), path(vcfs), path(csis)
 
     output:
     tuple val(contig), path("${contig}.chunk${chunk_id}.vcf.gz"), path("${contig}.chunk${chunk_id}.vcf.gz.csi"), emit: chunk_vcfgz

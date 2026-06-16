@@ -116,7 +116,12 @@ workflow {
                 )
             }
     }
-   
+    ch_chunks.view { x -> "CHUNK=${x}" }
+
+    extracted.contig_vcfgz
+    .groupTuple()
+    .view { x -> "GROUPED=${x}" }
+    
     chunk_out = MERGE_CONTIG_CHUNK(ch_chunks)
 
     

@@ -27,55 +27,45 @@ workflow {
     ref_file = file(params.ref, checkIfExists: true)
     ref_indexed = BUILD_BWA_INDEX(ref_file)
 
+    // ✅ FIX 1: extract real FASTA channel
     ref_fa = ref_indexed.ref_with_index.first()
 
     // ---------------------------
     // SAMPLESHEET CHANNEL
     // ---------------------------
-
     ch_samples = Channel
         .fromPath(samplesheet_path)
         .splitCsv(header: true)
         .map { row ->
-
-            def sampleId = row.sample_id?.trim()
-            def read1Raw = row.read1?.trim()
-            def read2Raw = row.read2?.trim()
-            def gpuProfile = row.gpu_profile?.trim() ?: '1gpu'
-
-            if (!sampleId || !read1Raw || !read2Raw)
-                error "Missing required fields in samplesheet"
-
-            def r1 = read1Raw.split(';').collect { file(it.trim(), checkIfExists: true) }
-            def r2 = read2Raw.split(';').collect { file(it.trim(), checkIfExists: true) }
-
-            if (r1.size() != r2.size())
-                error "Lane mismatch for ${sampleId}"
-
-            tuple(sampleId, r1, r2, gpuProfile)
+    
+            tuple(
+                row.sample_id.trim(),
+                file(row.read1.trim(), checkIfExists: true),
+                file(row.read2.trim(), checkIfExists: true),
+                row.gpu_profile?.trim() ?: '1gpu'
+            )
         }
-
-    // DEBUG
-    ch_samples.view { "DEBUG CH_SAMPLES = ${it}" }
+        .groupTuple(by: 0)
+        .map { sampleId, r1s, r2s, gpuProfiles ->
+    
+            tuple(
+                sampleId,
+                r1s,
+                r2s,
+                gpuProfiles[0]
+            )
+        }
 
     // ---------------------------
     // GPU STEP
     // ---------------------------
-
     pbgatk_out = PBGATK_GERMLINE(ch_samples, ref_fa)
 
-    // DEBUG
-    pbgatk_out.vcf.view { "DEBUG PBGATK_VCF = ${it}" }
-
     compressed_out = COMPRESS_AND_INDEX_VCF(pbgatk_out.vcf)
-
-    // DEBUG
-    compressed_out.vcfgz.view { "DEBUG COMPRESSED = ${it}" }
 
     // ---------------------------
     // CONTIG EXTRACTION
     // ---------------------------
-
     contig_file = GET_CONTIGS(ref_fa)
 
     ch_contigs = contig_file.contigs
@@ -88,13 +78,10 @@ workflow {
         ch_contigs = ch_contigs.filter { allowed.contains(it) }
     }
 
-    // DEBUG
-    ch_contigs.view { "DEBUG CONTIG = ${it}" }
-
     // ---------------------------
     // SAFE CONTIG-SAMPLE CROSS
     // ---------------------------
-
+    
     ch_contig_sample =
         ch_contigs
             .combine(compressed_out.vcfgz)
@@ -102,72 +89,46 @@ workflow {
                 tuple(contig, sample_id, vcfgz, csi)
             }
 
-    // DEBUG
-    ch_contig_sample.view { "DEBUG CONTIG_SAMPLE = ${it}" }
-
     extracted = EXTRACT_CONTIG_SAMPLE(ch_contig_sample)
-
-    // DEBUG
-    extracted.contig_vcfgz.view { "DEBUG EXTRACTED = ${it}" }
 
     // ---------------------------
     // CHUNK MERGING
     // ---------------------------
+    
+   ch_chunks = extracted.contig_vcfgz
+    .groupTuple()
+    .flatMap { contig, vcfList, csiList ->
 
-    ch_chunks = extracted.contig_vcfgz
-        .groupTuple()
-        .flatMap { contig, vcfList, csiList ->
+        def pairs = [vcfList, csiList].transpose()
 
-            // DEBUG
-            println "DEBUG GROUPED CONTIG=${contig}"
-            println "DEBUG VCF COUNT=${vcfList.size()}"
-            println "DEBUG CSI COUNT=${csiList.size()}"
+        pairs.collate(params.merge_chunk_size)
+            .withIndex()
+            .collect { chunk, idx ->
 
-            def pairs = [vcfList, csiList].transpose()
+                def vcfs = chunk.collect { it[0] }
+                def csis = chunk.collect { it[1] }
 
-            pairs.collate(params.merge_chunk_size)
-                .withIndex()
-                .collect { chunk, idx ->
+                tuple(
+                    contig,
+                    idx + 1,
+                    vcfs.size(),
+                    vcfs,
+                    csis
+                )
+            }
+    }
 
-                    def vcfs = chunk.collect { it[0] }
-                    def csis = chunk.collect { it[1] }
-
-                    tuple(
-                        contig,
-                        idx + 1,
-                        vcfs.size(),
-                        vcfs,
-                        csis
-                    )
-                }
-        }
-
-    // DEBUG
-    ch_chunks.view { "DEBUG CHUNK = ${it}" }
-
+    
     chunk_out = MERGE_CONTIG_CHUNK(ch_chunks)
 
-    // DEBUG
-    chunk_out.chunk_vcfgz.view { "DEBUG CHUNK_OUT = ${it}" }
-
+    
     final_in = chunk_out.chunk_vcfgz
         .groupTuple()
         .map { contig, vcfs, csis ->
-
-            // DEBUG
-            println "DEBUG FINAL_INPUT CONTIG=${contig}"
-            println "DEBUG FINAL_INPUT N_VCFS=${vcfs.size()}"
-
             tuple(contig, vcfs.sort { it.name })
         }
 
-    // DEBUG
-    final_in.view { "DEBUG FINAL_IN = ${it}" }
-
     final_out = MERGE_CONTIG_FINAL(final_in)
-
-    // DEBUG
-    final_out.contig_vcf.view { "DEBUG FINAL_OUT = ${it}" }
 
     if (params.run_flagstat)
         FLAGSTAT_CRAM(pbgatk_out.cram)

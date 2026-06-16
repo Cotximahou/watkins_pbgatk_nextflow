@@ -93,6 +93,7 @@ workflow {
     // ---------------------------
     // CHUNK MERGING
     // ---------------------------
+    
     ch_chunks = extracted.contig_vcfgz
         .map { contig, vcf, csi ->
             tuple(contig, vcf)
@@ -100,15 +101,20 @@ workflow {
         .groupTuple()
         .flatMap { contig, vcfList ->
     
+            vcfList = vcfList.unique { it.name }
+    
             vcfList.collate(params.merge_chunk_size)
                 .withIndex()
                 .collect { chunk, idx ->
                     tuple(contig, idx + 1, chunk.size(), chunk)
                 }
         }
-
+    
+    ch_chunks.view { x -> "CHUNK: ${x}" }
+    
     chunk_out = MERGE_CONTIG_CHUNK(ch_chunks)
 
+    
     final_in = chunk_out.chunk_vcfgz
         .groupTuple()
         .map { contig, vcfs, csis ->

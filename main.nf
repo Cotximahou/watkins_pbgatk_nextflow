@@ -88,8 +88,9 @@ workflow {
                 tuple(contig, sample_id, vcfgz, csi)
             }
 
+    ch_contig_sample.view { x -> "INPUT_TO_EXTRACT: ${x}" }
     extracted = EXTRACT_CONTIG_SAMPLE(ch_contig_sample)
-
+    extracted.contig_vcfgz.view { x -> "OUTPUT_FROM_EXTRACT: ${x}" }
     // ---------------------------
     // CHUNK MERGING
     // ---------------------------
@@ -116,11 +117,7 @@ workflow {
                 )
             }
     }
-    ch_chunks.view { x -> "CHUNK=${x}" }
 
-    extracted.contig_vcfgz
-    .groupTuple()
-    .view { x -> "GROUPED=${x}" }
     
     chunk_out = MERGE_CONTIG_CHUNK(ch_chunks)
 

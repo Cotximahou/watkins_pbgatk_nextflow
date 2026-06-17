@@ -55,6 +55,7 @@ workflow {
                 gpuProfiles[0]
             )
         }
+        .view { x -> "DEBUG CH_SAMPLES = ${x}" }
 
     // ---------------------------
     // GPU STEP

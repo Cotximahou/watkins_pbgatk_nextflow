@@ -10,7 +10,11 @@ process COMPRESS_AND_INDEX_VCF {
 
     script:
     """
+    echo "DEBUG SAMPLE=${sample_id}"
+    echo "DEBUG INPUT VCF=${vcf}"
+    
     bgzip --threads ${task.cpus} -c ${vcf} > ${sample_id}.vcf.gz
     bcftools index --threads ${task.cpus} ${sample_id}.vcf.gz
     """
+
 }

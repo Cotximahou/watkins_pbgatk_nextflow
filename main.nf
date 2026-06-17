@@ -64,6 +64,10 @@ workflow {
 
     compressed_out = COMPRESS_AND_INDEX_VCF(pbgatk_out.vcf)
 
+    compressed_out.vcfgz.view {
+         "DEBUG COMPRESSED = ${it}"
+    }
+
     // ---------------------------
     // CONTIG EXTRACTION
     // ---------------------------

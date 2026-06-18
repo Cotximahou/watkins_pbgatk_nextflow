@@ -59,3 +59,22 @@ process MERGE_CONTIG_FINAL {
     bcftools index --threads ${task.cpus} watkins_${contig}.vcf.gz
     """
 }
+
+process CONCAT_ALL_CONTIGS {
+    publishDir "${params.outdir}", mode: 'copy', pattern: 'watkins_all.vcf.gz*'
+
+    input:
+    path(vcfs)
+    path(csis)
+
+    output:
+    tuple path("watkins_all.vcf.gz"), path("watkins_all.vcf.gz.csi"), emit: full_vcf
+
+    script:
+    def vcfList = vcfs instanceof List ? vcfs.sort { it.name } : [vcfs]
+    def vcfArgs = vcfList.collect { it.toString() }.join(' ')
+    """
+    bcftools concat --threads ${task.cpus} --allow-overlaps -Oz -o watkins_all.vcf.gz ${vcfArgs}
+    bcftools index --threads ${task.cpus} watkins_all.vcf.gz
+    """
+}

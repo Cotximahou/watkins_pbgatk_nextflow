@@ -3,7 +3,7 @@ nextflow.enable.dsl = 2
 include { PBGATK_GERMLINE } from './modules/local/pbgatk'
 include { COMPRESS_AND_INDEX_VCF } from './modules/local/compress_vcf'
 include { GET_CONTIGS } from './modules/local/contigs'
-include { EXTRACT_CONTIG_SAMPLE; MERGE_CONTIG_CHUNK; MERGE_CONTIG_FINAL } from './modules/local/merge_contigs'
+include { EXTRACT_CONTIG_SAMPLE; MERGE_CONTIG_CHUNK; MERGE_CONTIG_FINAL; CONCAT_ALL_CONTIGS } from './modules/local/merge_contigs'
 include { FLAGSTAT_CRAM } from './modules/local/flagstat'
 include { PRECHECK_GPU_PROFILE_COUNTS } from './modules/local/preflight'
 include { BUILD_BWA_INDEX } from './modules/local/bwa_index'
@@ -134,6 +134,11 @@ workflow {
         }
 
     final_out = MERGE_CONTIG_FINAL(final_in)
+
+    vcfs_to_concat = final_out.contig_vcf.map { it[1] }.collect()
+    csis_to_concat = final_out.contig_vcf.map { it[2] }.collect()
+    
+    CONCAT_ALL_CONTIGS(vcfs_to_concat, csis_to_concat)
 
     if (params.run_flagstat)
         FLAGSTAT_CRAM(pbgatk_out.cram)
